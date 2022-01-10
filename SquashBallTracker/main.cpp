@@ -11,12 +11,22 @@ void videoAnalysis() {
 	std::string videoPath = "E:\\Documents\\Projects\\opencv\\SquashFootage.avi";
 	cv::VideoCapture cap(videoPath);
 
-	//Adding the relevant CUDA methods to manipulate each frame with the GPU
-	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2();
-	cv::Ptr<cv::cuda::Filter> filter = cv::cuda::createGaussianFilter(16, 16, cv::Size(9, 9), 0);
-
 	cv::Mat cFr1, cFr2;
 	cv::cuda::GpuMat gFr1, gFr2;
+	int erosionSize = 2;
+	int dilationSize = 3;
+
+	cap >> cFr1;
+	gFr1.upload(cFr1);
+
+	//Adding the relevant CUDA methods to manipulate each frame with the GPU
+	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1));
+	cv::Mat dilElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2 * dilationSize + 1, 2 * dilationSize + 1));
+
+	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2();
+	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(13, 13), 0);
+	cv::Ptr<cv::cuda::Filter> dilFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilElement);
+	cv::Ptr<cv::cuda::Filter> eroFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, eroElement);
 
 	std::vector<std::vector<cv::Point>> locations;
 	std::vector<cv::Rect> ContourBoxTracker;
@@ -37,10 +47,15 @@ void videoAnalysis() {
 		cap >> cFr1;
 		gFr1.upload(cFr1);
 
-		//Running a Gaussian Blur and removing static background
-		filter->apply(gFr1, gFr1);
-		BSM->apply(gFr1, gFr2);
+		//TODO:Try and separate the image into different colour values to remove them from the image and leave only the squash ball
+		//TODO:Research how to differentiate motion blur of a small object from shadows in the image
+		//TODO:Ignore any object that is around the ElShorbaggy's
 
+		//Running a Gaussian Blur and removing static background
+		gausFilter->apply(gFr1, gFr1);
+		BSM->apply(gFr1, gFr2);
+		eroFilter->apply(gFr2, gFr2);
+		dilFilter->apply(gFr2, gFr2);
 		gFr2.download(cFr2);
 
 		//Finding the "objects" in the frame that are between the size of 20 an 300 and appending them to a vector for tracking to take place
@@ -48,28 +63,23 @@ void videoAnalysis() {
 		for (size_t i = 0; i < locations.size(); i++) {
 			area = cv::contourArea(locations[i]);
 			if (area > 20 && area < 300) {
-				//cv::rectangle(cFr1, cv::boundingRect(locations[i]), cv::Scalar(0, 255, 0), 2);
 				ContourBoxTracker.push_back(boundingRect(locations[i]));
 			}
 		}
 
-		//TODO: Bounding rectangles are not having their positions updated
-		//TODO: Contour Box Traker is having repeated values inserted
-
 		objIds = tracker.distanceTracker(ContourBoxTracker);
 
-		for (sbt::SBTracker::TrackedObj obj : objIds) {
-			cv::rectangle(cFr1, obj.position, cv::Scalar(0, 255, 0), 2);
-			cv::putText(cFr1, std::to_string(obj.id), cv::Point(obj.position.x, obj.position.y), 1, 1, cv::Scalar(255, 0, 0));
+		for (int index = 0; index < objIds.size(); index++) {
+			cv::rectangle(cFr1, objIds[index].position, cv::Scalar(0, 255, 0), 2);
+			cv::putText(cFr1, std::to_string(objIds[index].id), cv::Point(objIds[index].position.x, objIds[index].position.y), 1, 1, cv::Scalar(255, 0, 0));			
 		}
-
-		cv::imshow("Squash ball detection", cFr1);
+		
+		cv::imshow("Squash ball detection", cFr2);
 
 		if (cv::waitKey(1) > 0) {
 			break;
 		}
 	}
-
 	cv::destroyWindow("Squash ball detection");
 }
 

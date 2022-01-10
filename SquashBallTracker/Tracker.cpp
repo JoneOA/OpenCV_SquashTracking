@@ -3,7 +3,6 @@
 #include <opencv2/opencv.hpp>
 #include <cmath>
 
-
 using namespace sbt;
 
 std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Rect> detectedObjects) {
@@ -12,10 +11,9 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 
 	for (cv::Rect detObj : detectedObjects) {
 
-		TrackedObj t = { detObj, identifier };
+		TrackedObj t = { detObj, identifier, 0};
 
 		bool sameObj = false;
-
 
 		int cenX = detObj.x + (detObj.width / 2);
 		int cenY = detObj.y + (detObj.height / 2);
@@ -24,13 +22,15 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 			int pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
 			int pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
 
-			double dis = hypot(cenX - pCenX, cenY - pCenY);
+			double dis = abs(hypot(cenX - pCenX, cenY - pCenY));
 
-			if (dis < 200) 
+			if (dis < 50) 
 			{
-				TrackedObj temp = { detObj, classifiedObjects[index].id };
+				TrackedObj temp = { detObj, classifiedObjects[index].id, dis };
 				newObjects.push_back(temp);
+				classifiedObjects.erase(classifiedObjects.begin() + index);
 				sameObj = true;
+				index--;
 				break;
 			}
 		}
@@ -41,27 +41,7 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 		}
 	}
 
-	tempObj.clear();
-
-	for (int i = 0; i < newObjects.size(); i++) {
-		int eyeDee = newObjects[i].id;
-		cv::Rect rectan;
-		if (classifiedObjects.size() != 0) {
-			for (int j = 0; j < classifiedObjects.size(); j++) {
-				if (classifiedObjects[j].id == eyeDee) {
-					rectan = classifiedObjects[j].position;
-					tempObj.push_back({ rectan, eyeDee });
-					break;
-				}
-			}
-		}
-		else {
-			rectan = newObjects[i].position;
-			tempObj.push_back({ rectan, eyeDee });
-		}
-
-	}
-	classifiedObjects = tempObj;
+	classifiedObjects = newObjects;
 
 	return classifiedObjects;
 }

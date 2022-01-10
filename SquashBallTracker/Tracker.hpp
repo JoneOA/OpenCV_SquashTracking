@@ -11,6 +11,7 @@ namespace sbt {
 			{
 				cv::Rect position;
 				int id;
+				double distanceMoved;
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
