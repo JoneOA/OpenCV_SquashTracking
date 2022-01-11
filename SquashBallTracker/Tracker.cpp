@@ -11,31 +11,39 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 
 	for (cv::Rect detObj : detectedObjects) {
 
-		TrackedObj t = { detObj, identifier, 0};
+		bool newObject = true;
+		direction d;
 
-		bool sameObj = false;
+		TrackedObj t = { detObj, identifier, 0, d, newObject };
 
-		int cenX = detObj.x + (detObj.width / 2);
-		int cenY = detObj.y + (detObj.height / 2);
+		float cenX = detObj.x + (detObj.width / 2);
+		float cenY = detObj.y + (detObj.height / 2);
 
 		for (int index = 0; index < classifiedObjects.size(); index++) {
-			int pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
-			int pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
+			
+			float pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
+			float pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
+			
+			d.x = pCenX - cenX;
+			d.y = pCenY - cenY;
 
-			double dis = abs(hypot(cenX - pCenX, cenY - pCenY));
+			t.dir = d;
+
+			double dis = hypot(t.dir.x, t.dir.y);
 
 			if (dis < 50) 
 			{
-				TrackedObj temp = { detObj, classifiedObjects[index].id, dis };
+				newObject = false;
+				TrackedObj temp = { detObj, classifiedObjects[index].id, dis, t.dir, newObject };
 				newObjects.push_back(temp);
 				classifiedObjects.erase(classifiedObjects.begin() + index);
-				sameObj = true;
+				std::cout << "ID: " << temp.id << " Dis: " << dis << " Direction: [" << t.dir.x << ", " << t.dir.y << "]\n";
 				index--;
 				break;
 			}
 		}
 
-		if( !sameObj ){
+		if( newObject ){
 			newObjects.push_back(t);
 			identifier++;
 		}

@@ -4,20 +4,20 @@
 #include <opencv2/cudaobjdetect.hpp>
 #include <opencv2/cudabgsegm.hpp>
 #include <opencv2/cudafilters.hpp>
+#include <opencv2/video/tracking.hpp>
 #include "Tracker.hpp"
 
-void videoAnalysis() {
+
+
+int videoAnalysisV1() {
 	//Adding path of video and capturing the frames using VideoCapture
 	std::string videoPath = "E:\\Documents\\Projects\\opencv\\SquashFootage.avi";
 	cv::VideoCapture cap(videoPath);
 
-	cv::Mat cFr1, cFr2;
+	cv::Mat cFr1, cFr2, ave, dif;
 	cv::cuda::GpuMat gFr1, gFr2;
 	int erosionSize = 2;
 	int dilationSize = 3;
-
-	cap >> cFr1;
-	gFr1.upload(cFr1);
 
 	//Adding the relevant CUDA methods to manipulate each frame with the GPU
 	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1));
@@ -45,9 +45,11 @@ void videoAnalysis() {
 
 		//Capturing the frame and uploading it to the GPU
 		cap >> cFr1;
+
+		//cv::cvtColor(cFr1, cFr2, cv::COLOR_BGR2GRAY);
+
 		gFr1.upload(cFr1);
 
-		//TODO:Try and separate the image into different colour values to remove them from the image and leave only the squash ball
 		//TODO:Research how to differentiate motion blur of a small object from shadows in the image
 		//TODO:Ignore any object that is around the ElShorbaggy's
 
@@ -58,11 +60,25 @@ void videoAnalysis() {
 		dilFilter->apply(gFr2, gFr2);
 		gFr2.download(cFr2);
 
+		//if (ave.empty()) {
+		//	cFr2.copyTo(ave);
+		//}
+
+
+		//TODO: Figure out how to get this accumulateWeighted to work
+		//TODO: Implement longer history into tracker so full path of objects can be taken into account
+
+		//cv::accumulateWeighted(cFr2, ave, 0.05 cv::Mat());
+		//cv::absdiff(cFr2, ave, dif);
+
+		//cv::threshold(dif, dif, 125, 255, cv::THRESH_BINARY);
+		//cv::absdiff(cFr2, ave, dif);
 		//Finding the "objects" in the frame that are between the size of 20 an 300 and appending them to a vector for tracking to take place
+	
 		cv::findContours(cFr2, locations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < locations.size(); i++) {
 			area = cv::contourArea(locations[i]);
-			if (area > 20 && area < 300) {
+			if (area > 100 && area < 300) {
 				ContourBoxTracker.push_back(boundingRect(locations[i]));
 			}
 		}
@@ -70,17 +86,21 @@ void videoAnalysis() {
 		objIds = tracker.distanceTracker(ContourBoxTracker);
 
 		for (int index = 0; index < objIds.size(); index++) {
-			cv::rectangle(cFr1, objIds[index].position, cv::Scalar(0, 255, 0), 2);
-			cv::putText(cFr1, std::to_string(objIds[index].id), cv::Point(objIds[index].position.x, objIds[index].position.y), 1, 1, cv::Scalar(255, 0, 0));			
+			if (!objIds[index].newObject) {
+				cv::rectangle(cFr1, objIds[index].position, cv::Scalar(0, 255, 0), 2);
+				cv::line(cFr1, cv::Point2f(objIds[index].position.x, objIds[index].position.y), cv::Point2f(objIds[index].position.x - objIds[index].dir.x, objIds[index].position.y - objIds[index].dir.y), cv::Scalar(0, 0, 255), 2);
+				cv::putText(cFr1, std::to_string(objIds[index].id), cv::Point(objIds[index].position.x, objIds[index].position.y), 1, 1, cv::Scalar(255, 0, 0));
+			}
 		}
 		
-		cv::imshow("Squash ball detection", cFr2);
+		cv::imshow("Squash ball detection", cFr1);
 
-		if (cv::waitKey(1) > 0) {
+		if (cv::waitKey(30) > 0) {
 			break;
 		}
 	}
 	cv::destroyWindow("Squash ball detection");
+	return 0;
 }
 
 void pictureAnalysis() {
@@ -120,8 +140,8 @@ void pictureAnalysis() {
 	cv::Size size = edge_host.size();
 	for (int i = 0; i < size.area();) {
 		float centre[2] = { edge_host.at<float>(0, i), edge_host.at<float>(0, i++) };
-		cv::Point sendIt(centre[0], centre[1]);
-		circle(src_host, sendIt, edge_host.at<float>(0, i++), cv::Scalar(0, 255, 0), 1);
+		//cv::Point sendIt(centre[0], centre[1]);
+		//circle(src_host, sendIt, edge_host.at<float>(0, i++), cv::Scalar(0, 255, 0), 1);
 	}
 
 	//Output the images
@@ -138,6 +158,6 @@ void pictureAnalysis() {
 }
 
 int main(int argc, char* argv[]){
-	videoAnalysis();
+	videoAnalysisV1();
 	return 0;
 }
