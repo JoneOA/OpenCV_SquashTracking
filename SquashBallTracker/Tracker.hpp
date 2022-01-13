@@ -7,22 +7,19 @@ namespace sbt {
 
 	class SBTracker {
 		public:	
-			struct direction 
-			{
-				float x = 0;
-				float y = 0;
-			};
 			struct TrackedObj
 			{
-				cv::Rect position;
+				std::vector<cv::Point> positions;
 				int id;
-				double distanceMoved;
-				direction dir;
-				bool newObject;
+				float xDir;
+				float yDir;
+				int width;
+				int height;
+				int framesMissing;
+				bool isBall;
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
-			TrackedObj createTrackedObject(cv::Rect trackedObjects);
 
 		private:
 

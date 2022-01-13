@@ -1,67 +1,88 @@
 #include <iostream>
 #include "Tracker.hpp"
+#include "TrajectoryPreditor.hpp"
 #include <opencv2/opencv.hpp>
 #include <cmath>
 
 using namespace sbt;
 
 std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Rect> detectedObjects) {
-	
 	newObjects.clear();
 
-	for (cv::Rect detObj : detectedObjects) {
+	for (int indexOfObject = 0; indexOfObject < detectedObjects.size(); indexOfObject++) {
+		cv::Rect currentObj = detectedObjects[indexOfObject];
 
-		bool newObject = true;
-		direction d;
+		float xPosD = currentObj.x + (currentObj.width / 2); //The x position at the centre of the detected object
+		float yPosD = currentObj.y + (currentObj.height / 2); //The y position at the centre of the detected object
 
-		TrackedObj t = { detObj, identifier, 0, d, newObject };
+		cv::Point position(xPosD, yPosD);
+		cv::Point nextPos;
 
-		float cenX = detObj.x + (detObj.width / 2);
-		float cenY = detObj.y + (detObj.height / 2);
+		int framesMissing = 0;
+		bool newObj = true;
+		bool isBall = false;
 
-		for (int index = 0; index < classifiedObjects.size(); index++) {
+		//TODO: Each object should temporarily store all the possible objects in the new frame that could be them. 
+		//----> This could either be done by storing the possible objects onto the object or by storing them temporarily on a vector in this class.
+		//----> It could be done in real time with the right conditions but for the time being do it separatly. Make it easy for yourself fool
 
-			float pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
-			float pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
+		for (int indexOfClassified = 0; indexOfClassified < classifiedObjects.size(); indexOfClassified++) {
+			SBTracker::TrackedObj curClassObj = classifiedObjects[indexOfClassified];
 
-			d.x = pCenX - cenX;
-			d.y = pCenY - cenY;
+			float xPosC = curClassObj.positions.at(curClassObj.positions.size() - 1).x; //The x position at the center of the already classified object
+			float yPosC = curClassObj.positions.at(curClassObj.positions.size() - 1).y; //The y position at the centre of the alreadt classified object
 
-			t.dir = d;
+			float distanceChange = hypot(xPosD - xPosC, yPosD - yPosC);
+			float xDir = xPosD - xPosC;
+			float yDir = yPosD - yPosC;
 
-			double dis = hypot(t.dir.x, t.dir.y);
+			float xDirChange = curClassObj.xDir - xDir;
+			float yDirChange = curClassObj.yDir - yDir;
+			if (curClassObj.positions.size() >= 2){
 
-			if (dis < 50)
-			{
-				//if (detObj.x < classifiedObjects[index].position.x + classifiedObjects[index].dir.x + 50 && detObj.x > classifiedObjects[index].position.x + classifiedObjects[index].dir.x - 50) {
-					//if (detObj.y < classifiedObjects[index].position.y + classifiedObjects[index].dir.y + 50 && detObj.y > classifiedObjects[index].position.y + classifiedObjects[index].dir.y - 50) {
-						newObject = false;
-						TrackedObj temp = { detObj, classifiedObjects[index].id, dis, t.dir, newObject };
-						newObjects.push_back(temp);
-						classifiedObjects.erase(classifiedObjects.begin() + index);
-						//std::cout << "ID: " << temp.id << " Dis: " << dis << " Direction: [" << t.dir.x << ", " << t.dir.y << "]\n";
-						index--;
+				nextPos = tpd::TrajectoryPredictor::nextPosition(curClassObj);
+
+				newObj = false;
+
+				if(nextPos.x - position.x < 25 && nextPos.x - position.x > 25) {
+					if (nextPos.y - position.y < 25 && nextPos.y - position.y > 25) {
+						std::cout << "--=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=--=- 1 \n";
+						framesMissing = 0;
+						curClassObj.positions.push_back(position);
+						newObjects.push_back({ curClassObj.positions, curClassObj.id, xDir, yDir, currentObj.width, currentObj.height, framesMissing });
+						classifiedObjects.erase(classifiedObjects.begin() + indexOfClassified);
+						indexOfClassified--;
 						break;
-					//}
-				//}
+					}
+				}
+			}
+			else {
+				if (xPosD < xPosC + curClassObj.xDir + 50 && xPosD > xPosC + curClassObj.xDir - 50) {
+					if (yPosD < yPosC + curClassObj.yDir + 50 && xPosD > yPosC + curClassObj.yDir - 50) {
+						std::cout << "--=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=--=- 2 \n";
+						framesMissing = 0;
+						curClassObj.positions.push_back(position);
+						newObjects.push_back({ curClassObj.positions, curClassObj.id, xDir, yDir, currentObj.width, currentObj.height, framesMissing });
+						classifiedObjects.erase(classifiedObjects.begin() + indexOfClassified);
+						indexOfClassified--;
+						break;
+					}
+				}
 			}
 		}
-
-		if( newObject ){
-			newObjects.push_back(t);
+		if ( newObj ) {
+			std::vector<cv::Point> positions;
+			positions.push_back(position);
+			newObjects.push_back({ positions, identifier, 0, 0, currentObj.width, currentObj.height, 0 });
 			identifier++;
 		}
 	}
 
-	classifiedObjects = newObjects;
+	for (int i = 0; i < classifiedObjects.size(); i++) {
+		classifiedObjects[i].framesMissing++;
+	}
+
+	classifiedObjects.insert(classifiedObjects.end(), newObjects.begin(), newObjects.end());
 
 	return classifiedObjects;
 }
-
-SBTracker::TrackedObj SBTracker::createTrackedObject(cv::Rect TrackedObject) {
-	return{ TrackedObject, identifier };
-}
-
-	
-
-
