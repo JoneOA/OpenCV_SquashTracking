@@ -11,12 +11,10 @@ namespace sbt {
 			{
 				std::vector<cv::Point> positions;
 				int id;
-				float xDir;
-				float yDir;
 				int width;
 				int height;
 				int framesMissing;
-				bool isBall;
+				std::vector<int> possibleTrackedObjs;
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);

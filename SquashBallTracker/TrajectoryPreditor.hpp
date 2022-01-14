@@ -9,7 +9,7 @@ namespace tpd {
 	class TrajectoryPredictor {
 	public:
 
-		static cv::Point nextPosition(sbt::SBTracker::TrackedObj);
+		static cv::Point nextPosition(std::vector<cv::Point>);
 
 	};
 }

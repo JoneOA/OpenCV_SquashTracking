@@ -135,9 +135,8 @@ int videoAnalysisV1() {
 		}
 
 		for (sbt::SBTracker::TrackedObj obj : objIds) {
-			if (obj.positions.size() >= 1) {
+			if (!obj.possibleTrackedObjs.empty()) {
 				cv::rectangle(cFr1, cv::Rect(obj.positions.at(obj.positions.size() - 1).x - obj.width / 2, obj.positions.at(obj.positions.size() - 1).y - obj.height / 2, obj.width, obj.height), cv::Scalar(0, 255, 0), 3);
-				cv::rectangle(cFr1, cv::Rect(obj.positions.at(obj.positions.size() - 1).x - obj.width / 2 + obj.xDir, obj.positions.at(obj.positions.size() - 1).y - obj.height / 2 + obj.yDir, obj.width, obj.height), cv::Scalar(0, 255, 255));
 				cv::putText(cFr1, std::to_string(obj.id), cv::Point(obj.positions.at(obj.positions.size() - 1).x - obj.width / 2, obj.positions.at(obj.positions.size() - 1).y - obj.height / 2), 1, 1, cv::Scalar(255, 255, 0));
 			}
 		}
