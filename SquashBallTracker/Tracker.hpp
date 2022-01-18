@@ -9,20 +9,20 @@ namespace sbt {
 		public:	
 			struct TrackedObj
 			{
-				std::vector<cv::Point> positions;
-				int id;
+				cv::Point location;
 				int width;
 				int height;
-				int framesMissing;
-				std::vector<int> possibleTrackedObjs;
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
 
 		private:
 
+			bool isWithinBounds(cv::Point detectedObj, cv::Point ClassifiedObj, int uncertainty);
+			cv::Rect findNextLink(int objectId, int j);
 			std::vector<TrackedObj> newObjects;
-			std::vector<TrackedObj> classifiedObjects;
+			std::vector<std::vector<cv::Rect>> detectionHistory;
+			std::vector<std::vector<std::vector<int>>> linkedDetections;
 			std::vector<TrackedObj> tempObj;
 			int identifier = 1;
 	};

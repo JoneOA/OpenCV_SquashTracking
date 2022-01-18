@@ -127,21 +127,10 @@ int videoAnalysisV1() {
 
 		//TODO: Draw bounding box around objects to screen
 		//personIds = shorbaggyIdentifier.distanceTracker(possiblePeople);
-		objIds = ballTracker.distanceTracker(possibleBall);
+		//objIds = ballTracker.distanceTracker(possibleBall);
 
-		for (sbt::SBTracker::TrackedObj per : personIds) {
-		cv::rectangle(cFr1, cv::Rect(per.positions.at(per.positions.size() - 1).x - per.width / 2, per.positions.at(per.positions.size() - 1).y - per.height / 2, per.width, per.height), cv::Scalar(0, 0, 255), 3);
-		cv::putText(cFr1, std::to_string(per.id), cv::Point(per.positions.at(per.positions.size() - 1).x - per.width / 2, per.positions.at(per.positions.size() - 1).y - per.height / 2), 1, 1, cv::Scalar(255, 255, 0));
-		}
-
-		for (sbt::SBTracker::TrackedObj obj : objIds) {
-			if (!obj.possibleTrackedObjs.empty()) {
-				cv::rectangle(cFr1, cv::Rect(obj.positions.at(obj.positions.size() - 1).x - obj.width / 2, obj.positions.at(obj.positions.size() - 1).y - obj.height / 2, obj.width, obj.height), cv::Scalar(0, 255, 0), 3);
-				cv::putText(cFr1, std::to_string(obj.id), cv::Point(obj.positions.at(obj.positions.size() - 1).x - obj.width / 2, obj.positions.at(obj.positions.size() - 1).y - obj.height / 2), 1, 1, cv::Scalar(255, 255, 0));
-			}
-		}
-
-		cv::imshow("cFr1", cFr1);
+		cv::imshow("cFr1", ball);
+		cv::imshow("Person", person);
 
 		if (cv::waitKey(50) > 0) {
 			break;
