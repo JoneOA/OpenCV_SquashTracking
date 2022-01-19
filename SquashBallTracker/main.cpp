@@ -14,94 +14,124 @@ int videoAnalysisV1() {
 	std::string videoPath = "E:\\Documents\\Projects\\opencv\\SquashFootage.avi";
 	cv::VideoCapture cap(videoPath);
 
-	cv::Mat cFr1, cFr2, ave, dif;
+	cv::Mat cFr1, cFr2, cFr3, d1, d2, d3, t1;
 	cv::cuda::GpuMat gFr1, gFr2;
-	int erosionSize = 2;
+
+	cv::cuda::GpuMat d1, d2, d3;		//Delta Frames (Differences between capture frames)
+	cv::cuda::GpuMat b1, b2, b3, bc;	//Frames optimised for ball tracking
+	cap >> cFr1;
 	int dilationSize = 3;
-
 	//Adding the relevant CUDA methods to manipulate each frame with the GPU
-	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1));
-	cv::Mat dilElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(2 * dilationSize + 1, 2 * dilationSize + 1));
+	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1));
+	cv::Mat dilElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilationSize + 1, 2 * dilationSize + 1));
 
-	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2();
+	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2(1000);
 	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(13, 13), 0);
-	cv::Ptr<cv::cuda::Filter> dilFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilElement);
-	cv::Ptr<cv::cuda::Filter> eroFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, eroElement);
+	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2(1000);
+	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(3, 3), 0);
+
+	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
+	cv::namedWindow("Threshold", cv::WINDOW_GUI_NORMAL);
+
+	int threshL = 167;
+	int threshH = 255;
+	int weight = 95;
+
+	cv::createTrackbar("LowerVal", "Threshold", &threshL, 255);
+	cv::createTrackbar("HigherVal", "Threshold", &threshH, 255);
+	cv::createTrackbar("Weight", "Threshold", &weight, 100);
 
 	std::vector<std::vector<cv::Point>> locations;
-	std::vector<cv::Rect> ContourBoxTracker;
-	std::vector<sbt::SBTracker::TrackedObj> objIds;
+	std::vector<cv::Rect> possiblePeople, possibleBall;
+	std::vector<sbt::SBTracker::TrackedObj> personIds, objIds;
+	cv::createTrackbar("Weight", "Threshold", &weight, 100);
+
+	std::vector<std::vector<cv::Point>> ballLocations, personLocations;
+	std::vector<cv::Rect> possiblePeople, possibleBall;
+	std::vector<sbt::SBTracker::TrackedObj> personIds, objIds;
 	double area;
 	
 	//Creating the tracker and the variable type for object tracking between frames;
 	sbt::SBTracker tracker;
-	sbt::SBTracker::TrackedObj t;
+	
+		possibleBall.clear();
+		possiblePeople.clear();
 
-	cv::namedWindow("Squash ball detection", cv::WINDOW_NORMAL);
 
 	while (true) {
-		
-		ContourBoxTracker.clear();
-
-		//Capturing the frame and uploading it to the GPU
+		possibleBall.clear();
+		d1 = cFr2 - cFr1;
+		d2 = cFr3 - cFr1;
+		d3 = cFr3 - cFr2;
 		cap >> cFr1;
+		cv::threshold(d1, d1, 10, 255, cv::THRESH_BINARY);
+		cv::threshold(d2, d2, 10, 255, cv::THRESH_BINARY);
+		cv::threshold(d3, d3, 10, 255, cv::THRESH_BINARY);
+		gFr3.upload(cFr3);
+		t1 = d1 + d2 + d3;
 
-		//cv::cvtColor(cFr1, cFr2, cv::COLOR_BGR2GRAY);
-
+		cv::cvtColor(t1, t1, cv::COLOR_BGR2GRAY);
+		
 		gFr1.upload(cFr1);
-
-		//TODO:Research how to differentiate motion blur of a small object from shadows in the image
-		//TODO:Ignore any object that is around the ElShorbaggy's
-
+		cv::cuda::threshold(d2, b2, 5, 255, cv::THRESH_BINARY);
+		//TODO: Ignore any object that is around the ElShorbaggy's
+		cv::cuda::add(bc, b3, bc);
+		//TODO: CONVERT CPU TASKS TO GPU TASKS FOR OPTIMISATION
 		//Running a Gaussian Blur and removing static background
-		gausFilter->apply(gFr1, gFr1);
-		BSM->apply(gFr1, gFr2);
-		eroFilter->apply(gFr2, gFr2);
-		dilFilter->apply(gFr2, gFr2);
-		gFr2.download(cFr2);
+		//gausFilter->apply(gFr1, gFr2);
+		//BSM->apply(gFr2, gFr2);
+		//eroFilter->apply(gFr2, gFr2);
+		//dilFilter->apply(gFr2, gFr2);
+		//gFr2.download(cFr2);
 
-		//if (ave.empty()) {
-		//	cFr2.copyTo(ave);
-		//}
-
-
-		//TODO: Figure out how to get this accumulateWeighted to work
 		//TODO: Implement longer history into tracker so full path of objects can be taken into account
-
-		//cv::accumulateWeighted(cFr2, ave, 0.05 cv::Mat());
-		//cv::absdiff(cFr2, ave, dif);
-
-		//cv::threshold(dif, dif, 125, 255, cv::THRESH_BINARY);
-		//cv::absdiff(cFr2, ave, dif);
-		//Finding the "objects" in the frame that are between the size of 20 an 300 and appending them to a vector for tracking to take place
-	
-		cv::findContours(cFr2, locations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+		
+		//Finding the potential "Players" in the frame that are between the size of 1000 an 10000 and potential "Balls" that are between 20 and 300
+		cv::findContours(t1, locations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < locations.size(); i++) {
 			area = cv::contourArea(locations[i]);
-			if (area > 100 && area < 300) {
-				ContourBoxTracker.push_back(boundingRect(locations[i]));
+			if (area > 1000 && area < 10000) {
+				possiblePeople.push_back(boundingRect(locations[i]));
+			}
+			else if (area > 20 && area < 300) {
+				possibleBall.push_back(boundingRect(locations[i]));
 			}
 		}
 
-		objIds = tracker.distanceTracker(ContourBoxTracker);
+		//Tracking the objects in the by possible people and possible balls
+		personIds = shorbaggyIdentifier.distanceTracker(possiblePeople);
+		objIds = ballTracker.distanceTracker(possibleBall);
 
-		for (int index = 0; index < objIds.size(); index++) {
-			if (!objIds[index].newObject) {
-				cv::rectangle(cFr1, objIds[index].position, cv::Scalar(0, 255, 0), 2);
-				cv::line(cFr1, cv::Point2f(objIds[index].position.x, objIds[index].position.y), cv::Point2f(objIds[index].position.x - objIds[index].dir.x, objIds[index].position.y - objIds[index].dir.y), cv::Scalar(0, 0, 255), 2);
-				cv::putText(cFr1, std::to_string(objIds[index].id), cv::Point(objIds[index].position.x, objIds[index].position.y), 1, 1, cv::Scalar(255, 0, 0));
+		for (int indexBall = 0; indexBall < objIds.size(); indexBall++) {
+			intersect = false;
+			for (int indexPers = 0; indexPers < personIds.size(); indexPers++) {
+				if (!intersect) {
+					intersect = ((objIds[indexBall].position & personIds[indexPers].position).area() > 0) ? true : false;
+				}
+				cv::rectangle(cFr1, cv::Rect(personIds[indexPers].position), cv::Scalar(255, 255, 0));
 			}
-		}
+			if (!objIds[indexBall].newObject && !intersect) {
+				cv::rectangle(cFr1, objIds[indexBall].position, cv::Scalar(0, 255, 0), 2);
+				//cv::rectangle(cFr1, cv::Rect(objIds[indexBall].position.x + objIds[indexBall].position.width/2 - 50, objIds[indexBall].position.y + objIds[indexBall].position.height/2 - 50, 100, 100), cv::Scalar(0, 255, 255), 2);
+				cv::line(cFr1, cv::Point2f(objIds[indexBall].position.x + objIds[indexBall].position.width / 2, objIds[indexBall].position.y + objIds[indexBall].position.height / 2), cv::Point2f(objIds[indexBall].position.x + objIds[indexBall].position.width / 2 - objIds[indexBall].dir.x, objIds[indexBall].position.y + objIds[indexBall].position.height / 2 - objIds[indexBall].dir.y), cv::Scalar(0, 0, 255), 2);
+				cv::putText(cFr1, std::to_string(objIds[indexBall].id), cv::Point(objIds[indexBall].position.x, objIds[indexBall].position.y), 1, 1, cv::Scalar(255, 0, 0));
+		cv::findContours(person, personLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < personLocations.size(); i++) {
 		
-		cv::imshow("Squash ball detection", cFr1);
+		cv::imshow("cFr1", d1);
 
-		if (cv::waitKey(30) > 0) {
+		if (cv::waitKey(1) > 0) {
 			break;
 		}
 	}
-	cv::destroyWindow("Squash ball detection");
+	cv::destroyAllWindows();
 	return 0;
 }
+			area = cv::contourArea(ballLocations[i]);
+			if (area > 20 && area < 500) {
+				possibleBall.push_back(boundingRect(ballLocations[i]));
+			}
+		}
 
 void pictureAnalysis() {
 	cv::Mat src_host, baw_img, edge_host, bin_img, can_mat;
