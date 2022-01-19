@@ -7,27 +7,22 @@ namespace sbt {
 
 	class SBTracker {
 		public:	
-			struct direction 
-			{
-				float x = 0;
-				float y = 0;
-			};
 			struct TrackedObj
 			{
-				cv::Rect position;
-				int id;
-				double distanceMoved;
-				direction dir;
-				bool newObject;
+				cv::Point location;
+				int width;
+				int height;
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
-			TrackedObj createTrackedObject(cv::Rect trackedObjects);
 
 		private:
 
+			bool isWithinBounds(cv::Point detectedObj, cv::Point ClassifiedObj, int uncertainty);
+			cv::Rect findNextLink(int objectId, int j);
 			std::vector<TrackedObj> newObjects;
-			std::vector<TrackedObj> classifiedObjects;
+			std::vector<std::vector<cv::Rect>> detectionHistory;
+			std::vector<std::vector<std::vector<int>>> linkedDetections;
 			std::vector<TrackedObj> tempObj;
 			int identifier = 1;
 	};
