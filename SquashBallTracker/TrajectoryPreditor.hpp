@@ -9,7 +9,14 @@ namespace tpd {
 	class TrajectoryPredictor {
 	public:
 
-		static cv::Point nextPosition(std::vector<cv::Point>);
+		static bool nextPosition(std::vector<cv::Rect>);
+	
 
+	private:
+
+		static std::vector<float> polynomialPath(std::vector<cv::Rect>);
+		static float calcDeterminant(std::vector<std::vector<float>> );
 	};
+
+
 }

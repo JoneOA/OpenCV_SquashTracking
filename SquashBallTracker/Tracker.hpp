@@ -14,16 +14,19 @@ namespace sbt {
 				int height;
 			};
 
-			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
+			std::vector<std::vector<cv::Rect>> distanceTracker(std::vector<cv::Rect> detectedObjs);
 
 		private:
 
-			bool isWithinBounds(cv::Point detectedObj, cv::Point ClassifiedObj, int uncertainty);
-			cv::Rect findNextLink(int objectId, int j);
+			bool isWithinBounds(cv::Point detectedObj, cv::Point ClassifiedObj);
+			int findNextLink(int objectId, int j);
+			std::vector<int> objectPath;
+			std::vector<cv::Rect> linkedObjects;
 			std::vector<TrackedObj> newObjects;
 			std::vector<std::vector<cv::Rect>> detectionHistory;
 			std::vector<std::vector<std::vector<int>>> linkedDetections;
 			std::vector<TrackedObj> tempObj;
+			std::vector<std::vector<cv::Rect>> fullGraph;
 			int identifier = 1;
 	};
 

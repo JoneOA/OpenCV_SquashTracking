@@ -7,6 +7,29 @@
 #include <opencv2/video/tracking.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include "Tracker.hpp"
+#include "TrajectoryPreditor.hpp"
+
+void CallBackFunc(int event, int x, int y, int flags, void* userdata)
+{
+	if (event == cv::EVENT_LBUTTONDOWN)
+	{
+		std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
+	}
+	else if (event == cv::EVENT_RBUTTONDOWN)
+	{
+		std::cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
+	}
+	else if (event == cv::EVENT_MBUTTONDOWN)
+	{
+		std::cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
+	}
+	else if (event == cv::EVENT_MOUSEMOVE)
+	{
+		std::cout << "Mouse move over the window - position (" << x << ", " << y << ")" << "\n";
+
+	}
+}
+
 
 int videoAnalysisV1() {
 	//Adding path of video and capturing the frames using VideoCapture
@@ -22,7 +45,6 @@ int videoAnalysisV1() {
 	cv::cuda::GpuMat gFr1, gFr2, gFr3;	//GPU Frames
 	int erosionSize = 2;
 	int dilationSize = 3;
-	int erosionSize = 2;
 
 	//Adding the relevant CUDA methods to manipulate each frame with the GPU
 	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2(1000);
@@ -46,15 +68,18 @@ int videoAnalysisV1() {
 
 	std::vector<std::vector<cv::Point>> ballLocations, personLocations;
 	std::vector<cv::Rect> possiblePeople, possibleBall;
-	std::vector<sbt::SBTracker::TrackedObj> personIds, objIds;
+	std::vector<cv::Rect> personIds, objIds;
 	double area;
 	bool intersect;
+
+	//cv::setMouseCallback("cFr1", CallBackFunc, NULL);
 
 	//Creating the tracker and the variable type for object tracking between frames;
 	sbt::SBTracker ballTracker;
 	sbt::SBTracker shorbaggyIdentifier;
 	sbt::SBTracker::TrackedObj t;
 
+	std::vector<cv::Rect> foundProjectiles;
 	while (true) {
 		possibleBall.clear();
 		possiblePeople.clear();
@@ -67,6 +92,10 @@ int videoAnalysisV1() {
 		gFr1.upload(cFr1);
 		gFr2.upload(cFr2);
 		gFr3.upload(cFr3);
+
+		gFr1.adjustROI(0, -50, -50, -50);
+		gFr2.adjustROI(0, -50, -50, -50);
+		gFr3.adjustROI(0, -50, -50, -50);
 
 		gausFilter->apply(gFr1, gFr1);
 		gausFilter->apply(gFr2, gFr2);
@@ -89,6 +118,7 @@ int videoAnalysisV1() {
 		cv::cuda::threshold(d1, b1, 5, 255, cv::THRESH_BINARY);
 		cv::cuda::threshold(d2, b2, 5, 255, cv::THRESH_BINARY);
 		cv::cuda::threshold(d3, b3, 5, 255, cv::THRESH_BINARY);
+
 		cv::cuda::add(b1, b2, bc);
 		cv::cuda::add(bc, b3, bc);
 		cv::cuda::cvtColor(bc, bc, cv::COLOR_BGR2GRAY);
@@ -107,16 +137,7 @@ int videoAnalysisV1() {
 		pc.download(person);
 		bc.download(ball);
 
-		//Finding the contours of the image and passing it to the simple traker
-
 		//TODO: Combine elements on the person to create a large boundingbox. If the boxes overlap then combine them
-		cv::findContours(person, personLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-		for (size_t i = 0; i < personLocations.size(); i++) {
-			area = cv::contourArea(personLocations[i]);
-			if (area > 500 && area < 5000) {
-				possiblePeople.push_back(boundingRect(personLocations[i]));
-			}
-		}
 
 		cv::findContours(ball, ballLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < ballLocations.size(); i++) {
@@ -128,12 +149,26 @@ int videoAnalysisV1() {
 
 		//TODO: Draw bounding box around objects to screen
 		//personIds = shorbaggyIdentifier.distanceTracker(possiblePeople);
-		//objIds = ballTracker.distanceTracker(possibleBall);
+		std::vector<std::vector<cv::Rect>> obj = ballTracker.distanceTracker(possibleBall);
 
-		cv::imshow("cFr1", ball);
-		cv::imshow("Person", person);
+		cFr1.adjustROI(0, -50, -50, -50);
 
-		if (cv::waitKey(50) > 0) {
+		/*/for (int i = 0; i < possibleBall.size(); i++) {
+			cv::rectangle(cFr1, possibleBall[i], cv::Scalar(0, 255, 0));
+			cv::circle(cFr1, cv::Point(possibleBall[i].x + (possibleBall[i].width / 2), possibleBall[i].y + (possibleBall[i].height / 2)), 50, cv::Scalar(0,255,255));
+			cv::putText(cFr1, std::to_string(i), cv::Point(possibleBall[i].x, possibleBall[i].y), 0, 1, cv::Scalar(255, 0, 0));
+		}*/
+		
+		for (int i = 0; i < obj.size(); i++) {
+			for (int j = 0; j < obj[i].size(); j++) {
+ 				cv::rectangle(cFr1, obj[i][j], cv::Scalar((100 * i - 50 * j) % 255, (25 * i + 25 * j) % 255, (100 * i - 16 * j) % 255));
+			}
+		}
+		
+
+		cv::imshow("cFr1", cFr1);
+
+		if (cv::waitKey(1) > 0) {
 			break;
 		}
 	}
