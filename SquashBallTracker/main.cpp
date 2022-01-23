@@ -9,27 +9,34 @@
 #include "Tracker.hpp"
 #include "TrajectoryPreditor.hpp"
 
-void CallBackFunc(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == cv::EVENT_LBUTTONDOWN)
-	{
-		std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
-	}
-	else if (event == cv::EVENT_RBUTTONDOWN)
-	{
-		std::cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
-	}
-	else if (event == cv::EVENT_MBUTTONDOWN)
-	{
-		std::cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << "\n";
-	}
-	else if (event == cv::EVENT_MOUSEMOVE)
-	{
-		std::cout << "Mouse move over the window - position (" << x << ", " << y << ")" << "\n";
+std::vector<cv::Rect> groupNearRects(std::vector<cv::Rect> rectangles, float groupSize) {
+	for (int i = 0; i < rectangles.size(); i++) {
+		cv::Rect obj1 = rectangles[i];
+		obj1.x -= obj1.width / (2 * groupSize);
+		obj1.y -= obj1.height / (2 * groupSize);
+		obj1.width += obj1.width;
+		obj1.height += obj1.height;
 
+		for (int j = i + 1; j < rectangles.size(); j++) {
+			cv::Rect obj2 = rectangles[j];
+			obj2.x -= obj2.width / (2 * groupSize);
+			obj2.y -= obj2.height / (2 * groupSize);
+			obj2.width += obj2.width;
+			obj2.height += obj2.height;
+
+			if ((obj1 & obj2).area() > 0) {
+				obj1.width = obj1.x + obj1.width > obj2.x + obj2.width ? obj1.width : obj2.x + obj2.width - obj1.x;
+				obj1.height = obj1.y + obj1.height > obj2.y + obj2.height ? obj1.height : obj2.y + obj2.height - obj1.y;
+				obj1.x = MIN(obj1.x, obj2.x);
+				obj1.y = MIN(obj1.y, obj2.y);
+
+				rectangles.erase(rectangles.begin() + j);
+				j--;
+			}
+		}
 	}
+	return rectangles;
 }
-
 
 int videoAnalysisV1() {
 	//Adding path of video and capturing the frames using VideoCapture
@@ -58,7 +65,7 @@ int videoAnalysisV1() {
 	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
 	cv::namedWindow("Threshold", cv::WINDOW_GUI_NORMAL);
 
-	int threshL = 167;
+	int threshL = 5;
 	int threshH = 255;
 	int weight = 95;
 
@@ -71,8 +78,6 @@ int videoAnalysisV1() {
 	std::vector<cv::Rect> personIds, objIds;
 	double area;
 	bool intersect;
-
-	//cv::setMouseCallback("cFr1", CallBackFunc, NULL);
 
 	//Creating the tracker and the variable type for object tracking between frames;
 	sbt::SBTracker ballTracker;
@@ -123,45 +128,62 @@ int videoAnalysisV1() {
 		cv::cuda::add(bc, b3, bc);
 		cv::cuda::cvtColor(bc, bc, cv::COLOR_BGR2GRAY);
 
-		//TODO: Ignore any object that is around the ElShorbaggy's
-		//TODO: CONVERT CPU TASKS TO GPU TASKS FOR OPTIMISATION
-
-		//gFr1.upload(t1);
-		//Running a Gaussian Blur and removing static background
-		//gausFilter->apply(gFr1, gFr2);
-		//BSM->apply(gFr2, gFr2);
-		//eroFilter->apply(gFr1, gFr2);
-		//dilFilter->apply(gFr2, gFr2);
-		//gFr2.download(t1);
-
 		pc.download(person);
 		bc.download(ball);
 
-		//TODO: Combine elements on the person to create a large boundingbox. If the boxes overlap then combine them
+		cFr1.adjustROI(0, -50, -50, -50);
 
 		cv::findContours(ball, ballLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < ballLocations.size(); i++) {
 			area = cv::contourArea(ballLocations[i]);
-			if (area > 20 && area < 500) {
+			if (area > 50 && area < 500) {
 				possibleBall.push_back(boundingRect(ballLocations[i]));
 			}
 		}
 
-		//TODO: Draw bounding box around objects to screen
-		//personIds = shorbaggyIdentifier.distanceTracker(possiblePeople);
+		cv::findContours(person, personLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+		for (size_t i = 0; i < personLocations.size(); i++) {
+			area = cv::contourArea(personLocations[i]);
+			if (area > 20 && area < 10000) {
+				possiblePeople.push_back(boundingRect(personLocations[i]));
+			}
+		}
+
+		std::cout << possiblePeople.size() << " Size Before \n";
+
+		possiblePeople = groupNearRects(possiblePeople, 0.01);
+
+		std::cout << possiblePeople.size() << " Size After \n -----------------------\n";
+
+		possibleBall = groupNearRects(possibleBall, 1);
+
+		for (int j = 0; j < possiblePeople.size(); j++) {
+			for (int i = 0; i < possibleBall.size(); i++) {
+				if ((possibleBall[i] & possiblePeople[j]).area() > 0) {
+					possibleBall.erase(possibleBall.begin() + i);
+					i--;
+				}
+			}
+		}
+
 		std::vector<std::vector<cv::Rect>> obj = ballTracker.distanceTracker(possibleBall);
 
-		cFr1.adjustROI(0, -50, -50, -50);
-
-		/*/for (int i = 0; i < possibleBall.size(); i++) {
-			cv::rectangle(cFr1, possibleBall[i], cv::Scalar(0, 255, 0));
-			cv::circle(cFr1, cv::Point(possibleBall[i].x + (possibleBall[i].width / 2), possibleBall[i].y + (possibleBall[i].height / 2)), 50, cv::Scalar(0,255,255));
+		for (int i = 0; i < possiblePeople.size(); i++) {
+			cv::rectangle(cFr1, possiblePeople[i], cv::Scalar(0, 0, 255));
+			//cv::circle(cFr1, cv::Point(possiblePeople[i].x + (possiblePeople[i].width / 2), possiblePeople[i].y + (possiblePeople[i].height / 2)), 50, cv::Scalar(0,255,255));
+			cv::putText(cFr1, std::to_string(i), cv::Point(possiblePeople[i].x, possiblePeople[i].y), 0, 1, cv::Scalar(0, 0, 255));
+		}
+		////std::cout << "NEW FRAME ---------------------------------------------------------------------\n";
+		for (int i = 0; i < possibleBall.size(); i++) {
+		cv::rectangle(cFr1, possibleBall[i], cv::Scalar(0, 255, 0));
+			//cv::circle(cFr1, cv::Point(possibleBall[i].x + (possibleBall[i].width / 2), possibleBall[i].y + (possibleBall[i].height / 2)), 50, cv::Scalar(0,255,255));
 			cv::putText(cFr1, std::to_string(i), cv::Point(possibleBall[i].x, possibleBall[i].y), 0, 1, cv::Scalar(255, 0, 0));
-		}*/
+		}
 		
 		for (int i = 0; i < obj.size(); i++) {
-			for (int j = 0; j < obj[i].size(); j++) {
- 				cv::rectangle(cFr1, obj[i][j], cv::Scalar((100 * i - 50 * j) % 255, (25 * i + 25 * j) % 255, (100 * i - 16 * j) % 255));
+			for(int j = 1; j < obj[i].size(); j++) {
+				cv::line(cFr1, cv::Point(obj[i][j - 1].x + (obj[i][j - 1].width / 2), obj[i][j - 1].y + (obj[i][j - 1].height / 2)), cv::Point(obj[i][j].x + (obj[i][j].width / 2), obj[i][j].y + (obj[i][j].height / 2)), cv::Scalar(i*46%255, i * 72%255, i * 113%255));
+				cv::rectangle(cFr1, obj[i][j], cv::Scalar((100 * i) % 255, (25 * i ) % 255, (100 * i) % 255));
 			}
 		}
 		

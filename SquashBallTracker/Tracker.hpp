@@ -14,12 +14,14 @@ namespace sbt {
 				int height;
 			};
 
+			void PathSearch(int& ballId);
+
 			std::vector<std::vector<cv::Rect>> distanceTracker(std::vector<cv::Rect> detectedObjs);
 
 		private:
-
-			bool isWithinBounds(cv::Point detectedObj, cv::Point ClassifiedObj);
+			
 			int findNextLink(int objectId, int j);
+			void PathSearch();
 			std::vector<int> objectPath;
 			std::vector<cv::Rect> linkedObjects;
 			std::vector<TrackedObj> newObjects;

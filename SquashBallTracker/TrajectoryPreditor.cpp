@@ -7,14 +7,14 @@
 bool tpd::TrajectoryPredictor::nextPosition(std::vector<cv::Rect> posHistory)
 {
 	std::vector<cv::Point> pointDiff;
-	std::vector<float> polynomialCoeff;
+	std::vector<double> polynomialCoeff;
 	cv::Point rateOfChange = 0;
 	cv::Point nextDirection;
 	bool followsProjectile = false;
 	float polyFit;
-	float uncertaintly = 50;
+	float uncertaintly = 5;
 
-
+	//TODO: Check that points are along the arc in the correct order!
 	if (posHistory.size() >= 4) {
 		polynomialCoeff = polynomialPath(posHistory);
 		for (int i = 0; i < posHistory.size(); i++) {
@@ -30,22 +30,17 @@ bool tpd::TrajectoryPredictor::nextPosition(std::vector<cv::Rect> posHistory)
 			}
 		}
 	}
-	if (followsProjectile) {
-		//std::cout << "PROJECTILE! - ";
-	}
 	return followsProjectile;
 }
 
-//DEBUG HERE VALUES AREN'T exactly as expected
-
-std::vector<float> tpd::TrajectoryPredictor::polynomialPath(std::vector<cv::Rect> posHistory)
+std::vector<double> tpd::TrajectoryPredictor::polynomialPath(std::vector<cv::Rect> posHistory)
 {
-	float xij, yi;
-	std::vector<float> coeff;
+	unsigned long long xij, yi;
+	std::vector<double> coeff;
 
-	std::vector<std::vector<float>> M = { {0, 0, 0}, {0, 0, 0}, {0, 0, 0} };
-	std::vector<std::vector<float>> Mi = { {0, 0, 0}, {0, 0, 0}, {0, 0, 0} };
-	std::vector<float> B = {0, 0, 0};
+	std::vector<std::vector<unsigned long long>> M = { {0, 0, 0}, {0, 0, 0}, {0, 0, 0} };
+	std::vector<std::vector<unsigned long long>> Mi = { {0, 0, 0}, {0, 0, 0}, {0, 0, 0} };
+	std::vector<unsigned long long> B = {0, 0, 0};
 	for (int i = 0; i < M.size(); i++) {
 		for (int j = 0; j < 3; j++) {
 			yi = 0;
@@ -58,23 +53,24 @@ std::vector<float> tpd::TrajectoryPredictor::polynomialPath(std::vector<cv::Rect
 		}
 		B[i] = yi;
 	}
-
+	long long detM = calcDeterminant(M);
 	for (int i = 0; i < M.size(); i++) {
 		Mi = M;
-		for (int j = 0; j < M[i].size(); j++) {
-			Mi[j][i] = B[j];
-			//std::cout << M[i][j] << ", ";
-		}
+		Mi[i] = B;
 		//std::cout << "\n";
-		coeff.push_back((calcDeterminant(Mi) / calcDeterminant(M)));
+		long long detMi = calcDeterminant(Mi);
+		coeff.push_back(((double)detMi / (double)detM));
 	}
 
 	return coeff;
 }
 
-float tpd::TrajectoryPredictor::calcDeterminant(std::vector<std::vector<float>> M)
+long long tpd::TrajectoryPredictor::calcDeterminant(std::vector<std::vector<unsigned long long>> M)
 {	
-	float determinant = ((M[0][0] * M[1][1] * M[2][2]) + (M[0][1] * M[1][2] * M[2][0]) + (M[1][0] * M[2][1] * M[0][2])) - ((M[0][2] * M[1][1] * M[2][0]) + (M[0][1] * M[1][0] * M[2][2]) + (M[0][0] * M[1][2] * M[2][1]));
+	long long t1 = M[0][0] * M[1][1] * M[2][2] - M[0][0] * M[1][2] * M[2][1];
+	long long t2 = M[0][1] * M[1][2] * M[2][0] - M[0][1] * M[1][0] * M[2][2];
+	long long t3 = M[0][2] * M[1][0] * M[2][1] - M[0][2] * M[1][1] * M[2][0];
+	long long determinant = t1 + t2 + t3;
 
 	return determinant;
 }
