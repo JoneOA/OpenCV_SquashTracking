@@ -22,7 +22,6 @@ namespace sbt {
 			};
 
 			std::vector<TrackedObj> distanceTracker(std::vector<cv::Rect> detectedObjs);
-			TrackedObj createTrackedObject(cv::Rect trackedObjects);
 
 		private:
 

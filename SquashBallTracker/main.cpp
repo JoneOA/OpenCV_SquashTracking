@@ -18,15 +18,8 @@ int videoAnalysisV1() {
 
 	cv::cuda::GpuMat d1, d2, d3, t1;	//Delta Frames (Differences between capture frames)
 	cv::cuda::GpuMat b1, b2, b3, bc;	//Frames optimised for ball tracking
-	cap >> cFr1;
-	int dilationSize = 3;
-	int erosionSize = 2;
 
 	//Adding the relevant CUDA methods to manipulate each frame with the GPU
-	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * erosionSize + 1, 2 * erosionSize + 1));
-	cv::Mat dilElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilationSize + 1, 2 * dilationSize + 1));
-
-	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2(1000);
 	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(13, 13), 0);
 
 	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
@@ -38,12 +31,10 @@ int videoAnalysisV1() {
 
 	cv::createTrackbar("LowerVal", "Threshold", &threshL, 255);
 	cv::createTrackbar("HigherVal", "Threshold", &threshH, 255);
-	cv::createTrackbar("Weight", "Threshold", &weight, 100);
 
 	std::vector<std::vector<cv::Point>> locations;
 	std::vector<cv::Rect> possiblePeople, possibleBall;
 	std::vector<sbt::SBTracker::TrackedObj> personIds, objIds;
-	cv::createTrackbar("Weight", "Threshold", &weight, 100);
 
 	double area;
 
@@ -67,7 +58,6 @@ int videoAnalysisV1() {
 		gausFilter->apply(gFr1, gFr1);
 		gausFilter->apply(gFr2, gFr2);
 		gausFilter->apply(gFr3, gFr3);
-
 
 		cv::cuda::subtract(gFr2, gFr1, d1);
 		cv::cuda::subtract(gFr3, gFr2, d2);
@@ -114,60 +104,6 @@ int videoAnalysisV1() {
 	}
 	cv::destroyAllWindows();
 	return 0;
-}
-
-void pictureAnalysis() {
-	cv::Mat src_host, baw_img, edge_host, bin_img, can_mat;
-	cv::cuda::GpuMat image, edges, houghOut, canOut;
-	std::string srcWin = "Source";
-	std::string edgeWin = "Edges";
-	cv::namedWindow(srcWin);
-	cv::namedWindow(edgeWin);
-
-	//Creating the detector objects
-	//TODO: Tweak the values so the correct number of circles can be displayed
-	cv::Ptr<cv::cuda::CannyEdgeDetector> can = cv::cuda::createCannyEdgeDetector(100, 200, 3, false);
-	cv::Ptr<cv::cuda::HoughCirclesDetector> circ = cv::cuda::createHoughCirclesDetector(2, 1000, 1000, 10, 200, 500);
-
-	//Importing the picture into the program
-	std::string picturePath = "E:\\Documents\\Projects\\opencv\\circle.png";
-	src_host = cv::imread(picturePath);
-
-	//Preparing the image for object detection
-	cv::cvtColor(src_host, baw_img, cv::COLOR_RGB2GRAY, 0); //Converting colour to grayscale
-	GaussianBlur(baw_img, baw_img, cv::Size(3, 3), 0, 0);	//Denoising the photo
-	threshold(baw_img, bin_img, 128, 255, cv::THRESH_OTSU); //Creating a black and white photo based on the white values in the image
-
-	//Loading the image into the GPU
-	image.upload(bin_img);
-
-	//Edge detection first to find the edges in the photo, followed by Hough Circle Detection to find the circles that are present
-	can->detect(image, edges);
-	circ->detect(edges, houghOut);
-
-	//Retreiving the object detected images from the GPU
-	edges.download(can_mat);		//The image with the edges being displayed as white lines on black background
-	houghOut.download(edge_host);	//The values of the circles found, returns as floats in sets of 3 -> (x pos, y pos, radius)
-
-	//Drawing the circles to the source image, for comparison of position
-	cv::Size size = edge_host.size();
-	for (int i = 0; i < size.area();) {
-		float centre[2] = { edge_host.at<float>(0, i), edge_host.at<float>(0, i++) };
-		//cv::Point sendIt(centre[0], centre[1]);
-		//circle(src_host, sendIt, edge_host.at<float>(0, i++), cv::Scalar(0, 255, 0), 1);
-	}
-
-	//Output the images
-	imshow(srcWin, src_host);
-	imshow(edgeWin, can_mat);
-
-	//Keeps the images displayed until a key is pressed
-	while (true) {
-		if (cv::waitKey(30) >= 0) {
-			break;
-		}
-	}
-	cv::destroyAllWindows();
 }
 
 int main(int argc, char* argv[]) {

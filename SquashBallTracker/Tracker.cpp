@@ -11,10 +11,10 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 
 	for (cv::Rect detObj : detectedObjects) {
 
-		bool newObject = true;
-		direction d;
+		bool isNewObject = true;
+		direction direction;
 
-		TrackedObj t = { detObj, identifier, 0, d, newObject };
+		TrackedObj t = { detObj, identifier, 0, direction, isNewObject };
 
 		float cenX = detObj.x + (detObj.width / 2);
 		float cenY = detObj.y + (detObj.height / 2);
@@ -24,42 +24,29 @@ std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Re
 			float pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
 			float pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
 
-			d.x = pCenX - cenX;
-			d.y = pCenY - cenY;
-
-			t.dir = d;
+			direction.x = pCenX - cenX;
+			direction.y = pCenY - cenY;
+			t.dir = direction;
 
 			double dis = hypot(t.dir.x, t.dir.y);
 
 			if (dis < 50)
 			{
-				//if (detObj.x < classifiedObjects[index].position.x + classifiedObjects[index].dir.x + 50 && detObj.x > classifiedObjects[index].position.x + classifiedObjects[index].dir.x - 50) {
-					//if (detObj.y < classifiedObjects[index].position.y + classifiedObjects[index].dir.y + 50 && detObj.y > classifiedObjects[index].position.y + classifiedObjects[index].dir.y - 50) {
-						newObject = false;
-						TrackedObj temp = { detObj, classifiedObjects[index].id, dis, t.dir, newObject };
-						newObjects.push_back(temp);
-						classifiedObjects.erase(classifiedObjects.begin() + index);
-						//std::cout << "ID: " << temp.id << " Dis: " << dis << " Direction: [" << t.dir.x << ", " << t.dir.y << "]\n";
-						index--;
-						break;
-					//}
-				//}
+				isNewObject = false;
+				TrackedObj temp = { detObj, classifiedObjects[index].id, dis, t.dir, isNewObject };
+				newObjects.push_back(temp);
+				classifiedObjects.erase(classifiedObjects.begin() + index);
+				index--;
+				break;
 			}
 		}
-
-		if( newObject ){
+		if( isNewObject ){
 			newObjects.push_back(t);
 			identifier++;
 		}
 	}
-
 	classifiedObjects = newObjects;
-
 	return classifiedObjects;
-}
-
-SBTracker::TrackedObj SBTracker::createTrackedObject(cv::Rect TrackedObject) {
-	return{ TrackedObject, identifier };
 }
 
 	
