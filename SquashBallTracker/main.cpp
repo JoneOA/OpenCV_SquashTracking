@@ -49,30 +49,20 @@ int videoAnalysisV1() {
 	cv::VideoCapture cap(videoPath);
 
 	cv::Mat cFr1, cFr2, cFr3;			//Capture Frames
-	cv::Mat ball, person;
+	cv::Mat ball, person;				//Frame optimised for object detection
 
 	cv::cuda::GpuMat d1, d2, d3;		//Delta Frames (Differences between capture frames)
 	cv::cuda::GpuMat b1, b2, b3, bc;	//Frames optimised for ball tracking
-	cv::cuda::GpuMat p1, p2, p3, pc, playerMask;	//Frames optimised for player tracking
+	cv::cuda::GpuMat p1;				//Frames optimised for player tracking
 	cv::cuda::GpuMat gFr1, gFr2, gFr3;	//GPU Frames
-	int erosionSize = 2;
-	int dilationSize = 3;
 
-	//Adding the relevant CUDA methods to manipulate each frame with the GPU
-	cv::Ptr<cv::BackgroundSubtractor> BSM = cv::cuda::createBackgroundSubtractorMOG2(1000);
+	//Adding the relevant CUDA method to manipulate each frame with the GPU
 	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(3, 3), 0);
 
-	cv::Mat eroElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(1, 1));
-	cv::Mat dilElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * dilationSize + 1, 2 * dilationSize + 1));
-	cv::Ptr<cv::cuda::Filter> dilFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilElement);
-	cv::Ptr<cv::cuda::Filter> eroFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, eroElement);
-
 	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
-	cv::namedWindow("Threshold", cv::WINDOW_GUI_NORMAL);
 
 	int threshL = 5;
 	int threshH = 255;
-	int weight = 95;
 
 	int hLow = 54;
 	int hMax = 128;
@@ -109,37 +99,39 @@ int videoAnalysisV1() {
 		gFr2.upload(cFr2);
 		gFr3.upload(cFr3);
 
+		//Adjusting the region of interest to ignore movement outside of the squash court
+		cFr1.adjustROI(0, -50, -50, -50);
 		gFr1.adjustROI(0, -50, -50, -50);
 		gFr2.adjustROI(0, -50, -50, -50);
 		gFr3.adjustROI(0, -50, -50, -50);
 
+		//Bluring the image to reduce noise from the camera
 		gausFilter->apply(gFr1, gFr1);
 		gausFilter->apply(gFr2, gFr2);
 		gausFilter->apply(gFr3, gFr3);
 
-		//Calculating the deltas (Differences) between each frame
+		//Processing the image to better show the movement of the players. Detecting the players from their HSV colour values
+		cv::cuda::cvtColor(gFr1, p1, cv::COLOR_BGR2HSV);
+		cv::cuda::inRange(p1, cv::Scalar(hLow, sLow, vLow), cv::Scalar(hMax, sMax, vMax), p1);
+
+		//Calculating the deltas (Differences) between each frame. The motion of the ball can be found by finding the differences between consecutive frames
 		cv::cuda::subtract(gFr2, gFr1, d1);
 		cv::cuda::subtract(gFr3, gFr1, d2);
 		cv::cuda::subtract(gFr3, gFr2, d3);
 
-		//Processing the image to better show the movement of the players
-		cv::cuda::cvtColor(gFr1, p1, cv::COLOR_BGR2HSV);
-		cv::cuda::inRange(p1, cv::Scalar(hLow, sLow, vLow), cv::Scalar(hMax, sMax, vMax), p1);
-
 		//Processing the image to better show the movement of the ball
-		cv::cuda::threshold(d1, b1, 5, 255, cv::THRESH_BINARY);
-		cv::cuda::threshold(d2, b2, 5, 255, cv::THRESH_BINARY);
-		cv::cuda::threshold(d3, b3, 5, 255, cv::THRESH_BINARY);
-
+		cv::cuda::threshold(d1, b1, threshL, threshH, cv::THRESH_BINARY);
+		cv::cuda::threshold(d2, b2, threshL, threshH, cv::THRESH_BINARY);
+		cv::cuda::threshold(d3, b3, threshL, threshH, cv::THRESH_BINARY);
 		cv::cuda::add(b1, b2, bc);
 		cv::cuda::add(bc, b3, bc);
 		cv::cuda::cvtColor(bc, bc, cv::COLOR_BGR2GRAY);
 
+		//Converting the frames so they can be processed by the CPU again
 		p1.download(person);
 		bc.download(ball);
 
-		cFr1.adjustROI(0, -50, -50, -50);
-
+		//Finding the edges of the blobs in the images processed for the balls detection. Filtering these for objects whos area is between 50 and 300px
 		cv::findContours(ball, ballLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < ballLocations.size(); i++) {
 			area = cv::contourArea(ballLocations[i]);
@@ -148,6 +140,7 @@ int videoAnalysisV1() {
 			}
 		}
 
+		//Finding the edges in the images processed for the players detection.
 		cv::findContours(person, personLocations, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 		for (size_t i = 0; i < personLocations.size(); i++) {
 			area = cv::contourArea(personLocations[i]);
@@ -156,8 +149,13 @@ int videoAnalysisV1() {
 			}
 		}
 
+		//Connecting near objects in the players frame. This "fills" the gaps between parts of the players that hasn't been found in the previous step.
 		possiblePeople = groupNearRects(possiblePeople, 1);
 
+		/*
+		Removing all the objects detected by the findContours(Ball) function that lie within the players boundaries.
+		These detections will be eronious ball detections. If the ball falls in the players boundary then it will be treated as occulded and need to be redected.
+		*/
 		for (int j = 0; j < possiblePeople.size(); j++) {
 			for (int i = 0; i < possibleBall.size(); i++) {
 				if ((possibleBall[i] & possiblePeople[j]).area() > 0) {
@@ -167,20 +165,27 @@ int videoAnalysisV1() {
 			}
 		}
 
+
+		//Call the object Ball Tracker from the Squash Ball Tracker (SBTracker) class. Found in Tracker.cpp
 		std::vector<std::vector<cv::Rect>> obj = ballTracker.distanceTracker(possibleBall);
 
+		//Looping over the returned vectors of ball paths that have been found and drawing the path and bounding rectange for these objects
 		for (int i = 0; i < obj.size(); i++) {
 			for(int j = 1; j < obj[i].size(); j++) {
 				cv::line(cFr1, cv::Point(obj[i][j - 1].x + (obj[i][j - 1].width / 2), obj[i][j - 1].y + (obj[i][j - 1].height / 2)), cv::Point(obj[i][j].x + (obj[i][j].width / 2), obj[i][j].y + (obj[i][j].height / 2)), cv::Scalar(i*46%255, i * 72%255, i * 113%255));
 				cv::rectangle(cFr1, obj[i][j], cv::Scalar((100 * i) % 255, (25 * i ) % 255, (100 * i) % 255));
 			}
-		}		
+		}
+
+		//Drawing the bounding box for the players
 		for (int i = 0; i < possiblePeople.size(); i++) {
 				cv::rectangle(cFr1, possiblePeople[i], cv::Scalar(255, 0, 0), 3);
 		}
 		
+		//Showing frame
 		cv::imshow("cFr1", cFr1);
-
+		
+		//Method stops when key is pressed
 		if (cv::waitKey(1) > 0) {
 			break;
 		}
