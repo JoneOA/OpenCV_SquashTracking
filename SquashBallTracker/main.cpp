@@ -19,7 +19,7 @@ Near rectangles are within (width*groupSize)/2 and (height*groupSize)/2 of anoth
 		obj1.x -= (obj1.width / 2) * groupSize;
 		obj1.y -= (obj1.height / 2) * groupSize;
 		obj1.width += obj1.width * groupSize;
-		obj1.height += obj1.height * groupSize;
+		obj1.height += obj1.height * groupSize * 2;
 
 		for (int j = i + 1; j < rectangles.size(); j++) {
 			cv::Rect obj2 = rectangles[j];
@@ -53,7 +53,7 @@ int videoAnalysisV1() {
 
 	cv::cuda::GpuMat d1, d2, d3;		//Delta Frames (Differences between capture frames)
 	cv::cuda::GpuMat b1, b2, b3, bc;	//Frames optimised for ball tracking
-	cv::cuda::GpuMat p1, p2, p3, pc;	//Frames optimised for player tracking
+	cv::cuda::GpuMat p1, p2, p3, pc, playerMask;	//Frames optimised for player tracking
 	cv::cuda::GpuMat gFr1, gFr2, gFr3;	//GPU Frames
 	int erosionSize = 2;
 	int dilationSize = 3;
@@ -74,9 +74,15 @@ int videoAnalysisV1() {
 	int threshH = 255;
 	int weight = 95;
 
-	cv::createTrackbar("LowerVal", "Threshold", &threshL, 255);
-	cv::createTrackbar("HigherVal", "Threshold", &threshH, 255);
-	cv::createTrackbar("Weight", "Threshold", &weight, 100);
+	int hLow = 54;
+	int hMax = 128;
+	int sLow = 160;
+	int sMax = 237;
+	int vLow = 0;
+	int vMax = 144;
+
+	cv::Scalar lower(hLow, sLow, vLow);
+	cv::Scalar higher(hMax, sMax, vMax);
 
 	std::vector<std::vector<cv::Point>> ballLocations, personLocations;
 	std::vector<cv::Rect> possiblePeople, possibleBall;
@@ -117,12 +123,8 @@ int videoAnalysisV1() {
 		cv::cuda::subtract(gFr3, gFr2, d3);
 
 		//Processing the image to better show the movement of the players
-		cv::cuda::threshold(d1, p1, 45, 255, cv::THRESH_BINARY);
-		cv::cuda::threshold(d2, p2, 45, 255, cv::THRESH_BINARY);
-		cv::cuda::threshold(d3, p3, 45, 255, cv::THRESH_BINARY);
-		cv::cuda::add(p1, p2, pc);
-		cv::cuda::add(p3, pc, pc);
-		cv::cuda::cvtColor(pc, pc, cv::COLOR_BGR2GRAY);
+		cv::cuda::cvtColor(gFr1, p1, cv::COLOR_BGR2HSV);
+		cv::cuda::inRange(p1, cv::Scalar(hLow, sLow, vLow), cv::Scalar(hMax, sMax, vMax), p1);
 
 		//Processing the image to better show the movement of the ball
 		cv::cuda::threshold(d1, b1, 5, 255, cv::THRESH_BINARY);
@@ -133,7 +135,7 @@ int videoAnalysisV1() {
 		cv::cuda::add(bc, b3, bc);
 		cv::cuda::cvtColor(bc, bc, cv::COLOR_BGR2GRAY);
 
-		pc.download(person);
+		p1.download(person);
 		bc.download(ball);
 
 		cFr1.adjustROI(0, -50, -50, -50);
@@ -155,7 +157,6 @@ int videoAnalysisV1() {
 		}
 
 		possiblePeople = groupNearRects(possiblePeople, 1);
-		possibleBall = groupNearRects(possibleBall, 1);
 
 		for (int j = 0; j < possiblePeople.size(); j++) {
 			for (int i = 0; i < possibleBall.size(); i++) {
@@ -173,6 +174,9 @@ int videoAnalysisV1() {
 				cv::line(cFr1, cv::Point(obj[i][j - 1].x + (obj[i][j - 1].width / 2), obj[i][j - 1].y + (obj[i][j - 1].height / 2)), cv::Point(obj[i][j].x + (obj[i][j].width / 2), obj[i][j].y + (obj[i][j].height / 2)), cv::Scalar(i*46%255, i * 72%255, i * 113%255));
 				cv::rectangle(cFr1, obj[i][j], cv::Scalar((100 * i) % 255, (25 * i ) % 255, (100 * i) % 255));
 			}
+		}		
+		for (int i = 0; i < possiblePeople.size(); i++) {
+				cv::rectangle(cFr1, possiblePeople[i], cv::Scalar(255, 0, 0), 3);
 		}
 		
 		cv::imshow("cFr1", cFr1);
