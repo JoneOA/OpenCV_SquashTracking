@@ -17,21 +17,13 @@ int sbt::SBTracker::findNextLink(int objectId, int j)
 			objectPath.pop_back();
 			linkedObjects.pop_back();
 		}
-		//std::cout << "Path: ";
-		//for (int a = 0; a < objectPath.size(); a++) {
-		//	std::cout << objectPath[a] << ", ";
-		//}
-		//std::cout << "\n";
 		if (tpd::TrajectoryPredictor::nextPosition(linkedObjects)) {
 			fullGraph.push_back(linkedObjects);
 			ballId = objectId;
-			//std::cout << ballId << "\n";
 		}
 	}
 	return ballId;
 }
-
-//OPTIMISATION
 
 void sbt::SBTracker::PathSearch(int& ballId)
 {

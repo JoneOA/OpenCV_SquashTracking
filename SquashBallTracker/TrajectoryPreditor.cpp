@@ -16,18 +16,25 @@ bool tpd::TrajectoryPredictor::nextPosition(std::vector<cv::Rect> posHistory)
 
 	//TODO: Check that points are along the arc in the correct order!
 	if (posHistory.size() >= 4) {
+		int xDir = posHistory[0].x - posHistory[1].x > 0 ? 1 : -1;
+		int yDir = posHistory[0].y - posHistory[1].y > 0 ? 1 : -1;
 		polynomialCoeff = polynomialPath(posHistory);
 		for (int i = 0; i < posHistory.size(); i++) {
 			polyFit = (polynomialCoeff[2] * powf(posHistory[i].x, 2)) + (posHistory[i].x * polynomialCoeff[1]) + polynomialCoeff[0];
-			if (abs(polyFit - posHistory[i].y) < uncertaintly)
-			{
-				followsProjectile = true;
+			if (abs(polyFit - posHistory[i].y) < uncertaintly) {
+				if (i + 1 < posHistory.size()) {
+					if (posHistory[i].x - posHistory[i + 1].x > 0 && xDir > 0 || posHistory[i].x - posHistory[i + 1].x < 0 && xDir < 0) {
+						followsProjectile = true;
+					}
+				}
 			}
-			else 
-			{
-				followsProjectile = false;
-				break;
-			}
+				else
+				{
+					followsProjectile = false;
+					break;
+				}
+
+
 		}
 	}
 	return followsProjectile;
@@ -57,7 +64,6 @@ std::vector<double> tpd::TrajectoryPredictor::polynomialPath(std::vector<cv::Rec
 	for (int i = 0; i < M.size(); i++) {
 		Mi = M;
 		Mi[i] = B;
-		//std::cout << "\n";
 		long long detMi = calcDeterminant(Mi);
 		coeff.push_back(((double)detMi / (double)detM));
 	}

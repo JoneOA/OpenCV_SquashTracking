@@ -9,34 +9,39 @@
 #include "Tracker.hpp"
 #include "TrajectoryPreditor.hpp"
 
-std::vector<cv::Rect> groupNearRects(std::vector<cv::Rect> rectangles, float groupSize) {
+/*
+Grouping rectangles that are near.
+Near rectangles are within (width*groupSize)/2 and (height*groupSize)/2 of another rectangle
+*/
+ std::vector<cv::Rect> groupNearRects(std::vector<cv::Rect> rectangles, float groupSize) {  
 	for (int i = 0; i < rectangles.size(); i++) {
 		cv::Rect obj1 = rectangles[i];
-		obj1.x -= obj1.width / (2 * groupSize);
-		obj1.y -= obj1.height / (2 * groupSize);
-		obj1.width += obj1.width;
-		obj1.height += obj1.height;
+		obj1.x -= (obj1.width / 2) * groupSize;
+		obj1.y -= (obj1.height / 2) * groupSize;
+		obj1.width += obj1.width * groupSize;
+		obj1.height += obj1.height * groupSize;
 
 		for (int j = i + 1; j < rectangles.size(); j++) {
 			cv::Rect obj2 = rectangles[j];
-			obj2.x -= obj2.width / (2 * groupSize);
-			obj2.y -= obj2.height / (2 * groupSize);
-			obj2.width += obj2.width;
-			obj2.height += obj2.height;
+			obj2.x -= (obj2.width / 2) * groupSize;
+			obj2.y -= (obj2.height / 2) * groupSize;
+			obj2.width += obj2.width * groupSize;
+			obj2.height += obj2.height * groupSize;
 
-			if ((obj1 & obj2).area() > 0) {
-				obj1.width = obj1.x + obj1.width > obj2.x + obj2.width ? obj1.width : obj2.x + obj2.width - obj1.x;
-				obj1.height = obj1.y + obj1.height > obj2.y + obj2.height ? obj1.height : obj2.y + obj2.height - obj1.y;
-				obj1.x = MIN(obj1.x, obj2.x);
-				obj1.y = MIN(obj1.y, obj2.y);
+			if ((obj1 & obj2).area() != 0) {
+				rectangles[i].x = MIN(obj1.x, obj2.x);
+				rectangles[i].y = MIN(obj1.y, obj2.y);
+				rectangles[i].width = obj1.br().x > obj2.br().x ? obj1.br().x - rectangles[i].x : obj2.br().x - rectangles[i].x;
+				rectangles[i].height = obj1.br().y > obj2.br().y ? obj1.br().y - rectangles[i].y : obj2.br().y - rectangles[i].y;
 
 				rectangles.erase(rectangles.begin() + j);
 				j--;
+
 			}
 		}
 	}
 	return rectangles;
-}
+} 
 
 int videoAnalysisV1() {
 	//Adding path of video and capturing the frames using VideoCapture
@@ -149,12 +154,7 @@ int videoAnalysisV1() {
 			}
 		}
 
-		std::cout << possiblePeople.size() << " Size Before \n";
-
-		possiblePeople = groupNearRects(possiblePeople, 0.01);
-
-		std::cout << possiblePeople.size() << " Size After \n -----------------------\n";
-
+		possiblePeople = groupNearRects(possiblePeople, 1);
 		possibleBall = groupNearRects(possibleBall, 1);
 
 		for (int j = 0; j < possiblePeople.size(); j++) {
@@ -168,18 +168,6 @@ int videoAnalysisV1() {
 
 		std::vector<std::vector<cv::Rect>> obj = ballTracker.distanceTracker(possibleBall);
 
-		for (int i = 0; i < possiblePeople.size(); i++) {
-			cv::rectangle(cFr1, possiblePeople[i], cv::Scalar(0, 0, 255));
-			//cv::circle(cFr1, cv::Point(possiblePeople[i].x + (possiblePeople[i].width / 2), possiblePeople[i].y + (possiblePeople[i].height / 2)), 50, cv::Scalar(0,255,255));
-			cv::putText(cFr1, std::to_string(i), cv::Point(possiblePeople[i].x, possiblePeople[i].y), 0, 1, cv::Scalar(0, 0, 255));
-		}
-		////std::cout << "NEW FRAME ---------------------------------------------------------------------\n";
-		for (int i = 0; i < possibleBall.size(); i++) {
-		cv::rectangle(cFr1, possibleBall[i], cv::Scalar(0, 255, 0));
-			//cv::circle(cFr1, cv::Point(possibleBall[i].x + (possibleBall[i].width / 2), possibleBall[i].y + (possibleBall[i].height / 2)), 50, cv::Scalar(0,255,255));
-			cv::putText(cFr1, std::to_string(i), cv::Point(possibleBall[i].x, possibleBall[i].y), 0, 1, cv::Scalar(255, 0, 0));
-		}
-		
 		for (int i = 0; i < obj.size(); i++) {
 			for(int j = 1; j < obj[i].size(); j++) {
 				cv::line(cFr1, cv::Point(obj[i][j - 1].x + (obj[i][j - 1].width / 2), obj[i][j - 1].y + (obj[i][j - 1].height / 2)), cv::Point(obj[i][j].x + (obj[i][j].width / 2), obj[i][j].y + (obj[i][j].height / 2)), cv::Scalar(i*46%255, i * 72%255, i * 113%255));
@@ -187,7 +175,6 @@ int videoAnalysisV1() {
 			}
 		}
 		
-
 		cv::imshow("cFr1", cFr1);
 
 		if (cv::waitKey(1) > 0) {
