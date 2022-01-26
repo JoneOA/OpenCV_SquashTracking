@@ -3,11 +3,6 @@
 
 [![Player Movement](https://img.youtube.com/vi/FFiENsmIYyo/0.jpg)](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
 
-[![Player HSV](https://img.youtube.com/vi/PXNhsshctMU/0.jpg)](https://www.youtube.com/watch?v=PXNhsshctMU&ab_channel=OwainJones)
-
-[![Naive Ball Tracking](https://img.youtube.com/vi/4hJD5qIBbTQ/0.jpg)](https://www.youtube.com/watch?v=4hJD5qIBbTQ&ab_channel=OwainJones)
-
-
 ## Objectives
 1) From a single still camera, track the motion of a squash ball from a high level game of squash
 2) The squash ball must be detected and tracked between frames
@@ -56,3 +51,7 @@ When an object that follows the trajectory is found, it is drawn to the screen w
 
 ## Evaluation
 ## Improvements
+
+[![Player HSV](https://img.youtube.com/vi/PXNhsshctMU/0.jpg)](https://www.youtube.com/watch?v=PXNhsshctMU&ab_channel=OwainJones)
+
+[![Naive Ball Tracking](https://img.youtube.com/vi/4hJD5qIBbTQ/0.jpg)](https://www.youtube.com/watch?v=4hJD5qIBbTQ&ab_channel=OwainJones)
