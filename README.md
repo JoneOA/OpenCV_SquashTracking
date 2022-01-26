@@ -47,11 +47,19 @@ Objects which aren't following a parabolic arc would not fit well to the equatio
 
 When an object that follows the trajectory is found, it is drawn to the screen with the path it has taken.
 
-#### CPU vs GPU
-
 ## Evaluation
-## Improvements
 
+
+## Improvements
+There are a handful of areas that I would work on immediately when returning to this project, most of which relate to the object tracking. First there is an oversight which I discovered that the direction of motion is not taken into account when mapping the points to the parabola. This can lead to a case where a set of points can be deemed to follow the arc because they all lie on the line, when in fact the order of the points along the line is wrong. When this issue is resolved I think that most of the false positive lines will be eliminated.
+
+![Pasted image 20220126170957](https://user-images.githubusercontent.com/54110810/151258213-ec094b89-1948-41da-a060-1c2a5e84bed5.png)
+
+In the image processing portion I think there could be an improvement when it comes to creating a mask of the players. Maybe by combining both movement detection and HSV detection together could find a middle ground by finding both a large portions of the torso of each player as well as detecting legs and shorts by movement. The better and tighter the boundary of the players would lead to removing many of the extra edges that are not the ball.
+
+## Appendix
+### Ball tracking - players detected by HSV values
 [![Player HSV](https://img.youtube.com/vi/PXNhsshctMU/0.jpg)](https://www.youtube.com/watch?v=PXNhsshctMU&ab_channel=OwainJones)
 
+### Ball tracking by selecting first nearby object
 [![Naive Ball Tracking](https://img.youtube.com/vi/4hJD5qIBbTQ/0.jpg)](https://www.youtube.com/watch?v=4hJD5qIBbTQ&ab_channel=OwainJones)
