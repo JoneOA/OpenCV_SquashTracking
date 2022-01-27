@@ -25,7 +25,7 @@ int sbt::SBTracker::findNextLink(int objectId, int j)
 	return ballId;
 }
 
-void sbt::SBTracker::PathSearch(int& ballId)
+void sbt::SBTracker::PathSearch(int ballId)
 {
 	cv::Rect currentObject;
 	cv::Rect nextObject;

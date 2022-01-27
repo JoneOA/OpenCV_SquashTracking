@@ -59,6 +59,8 @@ int videoAnalysisV1() {
 	//Adding the relevant CUDA method to manipulate each frame with the GPU
 	cv::Ptr<cv::cuda::Filter> gausFilter = cv::cuda::createGaussianFilter(16, 16, cv::Size(3, 3), 0);
 
+
+
 	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
 
 	int threshL = 5;
@@ -74,9 +76,11 @@ int videoAnalysisV1() {
 	cv::Scalar lower(hLow, sLow, vLow);
 	cv::Scalar higher(hMax, sMax, vMax);
 
+
 	std::vector<std::vector<cv::Point>> ballLocations, personLocations;
 	std::vector<cv::Rect> possiblePeople, possibleBall;
 	std::vector<cv::Rect> personIds, objIds;
+
 	double area;
 	bool intersect;
 
@@ -110,11 +114,13 @@ int videoAnalysisV1() {
 		gausFilter->apply(gFr2, gFr2);
 		gausFilter->apply(gFr3, gFr3);
 
+
 		//Processing the image to better show the movement of the players. Detecting the players from their HSV colour values
 		cv::cuda::cvtColor(gFr1, p1, cv::COLOR_BGR2HSV);
 		cv::cuda::inRange(p1, cv::Scalar(hLow, sLow, vLow), cv::Scalar(hMax, sMax, vMax), p1);
 
 		//Calculating the deltas (Differences) between each frame. The motion of the ball can be found by finding the differences between consecutive frames
+
 		cv::cuda::subtract(gFr2, gFr1, d1);
 		cv::cuda::subtract(gFr3, gFr1, d2);
 		cv::cuda::subtract(gFr3, gFr2, d3);
