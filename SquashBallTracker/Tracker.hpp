@@ -19,7 +19,8 @@ namespace sbt {
 		private:
 			
 			int findNextLink(int objectId, int j);
-			void PathSearch(int ballId);
+			void PathSearch(int& ballId);
+
 			std::vector<int> objectPath;
 			std::vector<cv::Rect> linkedObjects;
 			std::vector<TrackedObj> newObjects;
