@@ -67,6 +67,7 @@ int videoAnalysisV1() {
 	cv::Ptr<cv::cuda::Filter> dilFilter = cv::cuda::createMorphologyFilter(cv::MORPH_DILATE, CV_8UC1, dilElement);
 	cv::Ptr<cv::cuda::Filter> eroFilter = cv::cuda::createMorphologyFilter(cv::MORPH_ERODE, CV_8UC1, eroElement);
 
+
 	cv::namedWindow("cFr1", cv::WINDOW_KEEPRATIO);
 	cv::namedWindow("Threshold", cv::WINDOW_GUI_NORMAL);
 
@@ -76,11 +77,11 @@ int videoAnalysisV1() {
 
 	cv::createTrackbar("LowerVal", "Threshold", &threshL, 255);
 	cv::createTrackbar("HigherVal", "Threshold", &threshH, 255);
-	cv::createTrackbar("Weight", "Threshold", &weight, 100);
 
 	std::vector<std::vector<cv::Point>> ballLocations, personLocations;
 	std::vector<cv::Rect> possiblePeople, possibleBall;
 	std::vector<cv::Rect> personIds, objIds;
+
 	double area;
 	bool intersect;
 
@@ -111,7 +112,7 @@ int videoAnalysisV1() {
 		gausFilter->apply(gFr2, gFr2);
 		gausFilter->apply(gFr3, gFr3);
 
-		//Calculating the deltas (Differences) between each frame
+		//Calculating the differences between each frame
 		cv::cuda::subtract(gFr2, gFr1, d1);
 		cv::cuda::subtract(gFr3, gFr1, d2);
 		cv::cuda::subtract(gFr3, gFr2, d3);
