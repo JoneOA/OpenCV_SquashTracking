@@ -1,54 +1,77 @@
 #include <iostream>
 #include "Tracker.hpp"
+#include "TrajectoryPreditor.hpp"
 #include <opencv2/opencv.hpp>
 #include <cmath>
 
 using namespace sbt;
 
-std::vector<SBTracker::TrackedObj> SBTracker::distanceTracker(std::vector<cv::Rect> detectedObjects) {
-	
-	newObjects.clear();
-
-	for (cv::Rect detObj : detectedObjects) {
-
-		bool isNewObject = true;
-		direction direction;
-
-		TrackedObj t = { detObj, identifier, 0, direction, isNewObject };
-
-		float cenX = detObj.x + (detObj.width / 2);
-		float cenY = detObj.y + (detObj.height / 2);
-
-		for (int index = 0; index < classifiedObjects.size(); index++) {
-
-			float pCenX = classifiedObjects[index].position.x + (classifiedObjects[index].position.width / 2);
-			float pCenY = classifiedObjects[index].position.y + (classifiedObjects[index].position.height / 2);
-
-			direction.x = pCenX - cenX;
-			direction.y = pCenY - cenY;
-			t.dir = direction;
-
-			double dis = hypot(t.dir.x, t.dir.y);
-
-			if (dis < 50)
-			{
-				isNewObject = false;
-				TrackedObj temp = { detObj, classifiedObjects[index].id, dis, t.dir, isNewObject };
-				newObjects.push_back(temp);
-				classifiedObjects.erase(classifiedObjects.begin() + index);
-				index--;
-				break;
-			}
+int sbt::SBTracker::findNextLink(int objectId, int j)
+{
+	int ballId = -1;
+	if (j < linkedDetections.size()) {
+		for (int k = 0; k < linkedDetections[j][objectId].size(); k++) {
+			objectPath.push_back(linkedDetections[j][objectId][k]);
+			linkedObjects.push_back(detectionHistory[j + 1][linkedDetections[j][objectId][k]]);
+			ballId = findNextLink(linkedDetections[j][objectId][k], j + 1);
+			objectPath.pop_back();
+			linkedObjects.pop_back();
 		}
-		if( isNewObject ){
-			newObjects.push_back(t);
-			identifier++;
+		if (tpd::TrajectoryPredictor::nextPosition(linkedObjects)) {
+			fullGraph.push_back(linkedObjects);
+			ballId = objectId;
 		}
 	}
-	classifiedObjects = newObjects;
-	return classifiedObjects;
+	return ballId;
 }
 
-	
+void sbt::SBTracker::PathSearch(int ballId)
+{
+	cv::Rect currentObject;
+	cv::Rect nextObject;
+	int j = 0;
+	for (int k = 0; k < linkedDetections[j].size(); k++) {
+		objectPath.push_back(k);
+		linkedObjects.push_back(detectionHistory[j][k]);
+		for (int l = 0; l < linkedDetections[j][k].size(); l++) {
+			objectPath.push_back(linkedDetections[j][k][l]);
+			linkedObjects.push_back(detectionHistory[j + 1][linkedDetections[j][k][l]]);
+			ballId = findNextLink(linkedDetections[j][k][l], j + 1);
+			objectPath.pop_back();
+			linkedObjects.pop_back();
+		}
+		objectPath.pop_back();
+		linkedObjects.pop_back();
+	}
+}
 
+std::vector<std::vector<cv::Rect>> SBTracker::distanceTracker(std::vector<cv::Rect> detectedObjects) {
+	fullGraph.clear();
+	int lengthOfHistory = detectionHistory.size() - 1;
+	int ballId = -1;
+	std::vector<std::vector<int>> closeObjectList;
+	if (lengthOfHistory >= 0) {
+		for (int i = 0; i < detectionHistory[lengthOfHistory].size(); i++) {
+			std::vector<int> closeObjects;
+			for (int j = 0; j < detectedObjects.size(); j++) {
+				cv::Rect detObj = detectedObjects[j];
+				if (hypot(detObj.x - detectionHistory[lengthOfHistory][i].x, detObj.y - detectionHistory[lengthOfHistory][i].y) < 300) {
+					closeObjects.push_back(j);
+				}
+			}
+			closeObjectList.push_back(closeObjects);
+		}
+		linkedDetections.push_back(closeObjectList);
+		if (linkedDetections.size() > 4) {
+			linkedDetections.erase(linkedDetections.begin());
+			detectionHistory.erase(detectionHistory.begin());
+		}
+	}
 
+	detectionHistory.push_back(detectedObjects);
+
+	if (linkedDetections.size() > 2) {
+		PathSearch(ballId);
+	}
+	return fullGraph;
+}

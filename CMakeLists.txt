@@ -13,13 +13,18 @@ add_library(
 	ObjectTracker
 	./SquashBallTracker/Tracker.cpp
 	./SquashBallTracker/Tracker.hpp
-)
+	)
 
+add_library(
+	TrajectoryPred
+	./SquashBallTracker/TrajectoryPreditor.cpp
+	./SquashBallTracker/TrajectoryPreditor.hpp
+)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 add_executable( SquashBallTracker SquashBallTracker/main.cpp )
 
-target_link_libraries( SquashBallTracker ${OpenCV_LIBS} ObjectTracker)
+target_link_libraries( SquashBallTracker ${OpenCV_LIBS} ObjectTracker TrajectoryPred )
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
