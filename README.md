@@ -47,9 +47,6 @@ Objects which aren't following a parabolic arc would not fit well to the equatio
 
 When an object that follows the trajectory is found, it is drawn to the screen with the path it has taken.
 
-## Evaluation
-
-
 ## Improvements
 There are a handful of areas that I would work on immediately when returning to this project, most of which relate to the object tracking. First there is an oversight which I discovered that the direction of motion is not taken into account when mapping the points to the parabola. This can lead to a case where a set of points can be deemed to follow the arc because they all lie on the line, when in fact the order of the points along the line is wrong. When this issue is resolved I think that most of the false positive lines will be eliminated.
 
