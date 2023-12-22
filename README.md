@@ -3,7 +3,7 @@
 
 [![Player Movement](https://img.youtube.com/vi/FFiENsmIYyo/0.jpg)](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
 
-https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones
+[Video Output](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
 
 ## Objectives
 1) From a single still camera, track the motion of a squash ball from a high level game of squash
