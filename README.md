@@ -3,8 +3,6 @@
 
 [![Player Movement](https://img.youtube.com/vi/FFiENsmIYyo/0.jpg)](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
 
-[Video Output](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
-
 ## Objectives
 1) From a single still camera, track the motion of a squash ball from a high level game of squash
 2) The squash ball must be detected and tracked between frames
@@ -48,6 +46,9 @@ Objects which aren't following a parabolic arc would not fit well to the equatio
 ![Pasted image 20220126154924](https://user-images.githubusercontent.com/54110810/151198644-b93ca1a9-1a96-49a9-bf63-6548518ff061.png)
 
 When an object that follows the trajectory is found, it is drawn to the screen with the path it has taken.
+
+## Evaluation
+
 
 ## Improvements
 There are a handful of areas that I would work on immediately when returning to this project, most of which relate to the object tracking. First there is an oversight which I discovered that the direction of motion is not taken into account when mapping the points to the parabola. This can lead to a case where a set of points can be deemed to follow the arc because they all lie on the line, when in fact the order of the points along the line is wrong. When this issue is resolved I think that most of the false positive lines will be eliminated.
