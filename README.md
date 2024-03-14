@@ -1,4 +1,10 @@
 # Squash Ball Tracker
+## Version 2
+This is Version 2 of the squash ball tracking project which I created 3 years ago using modern C++ and using new skills I've developed over the past 3 years.
+The initial version of this project can be found [here](https://github.com/JoneOA/SquashBallTracker_V1)
+
+The underlying ideas are fundamentally the same between both projects, this mainly a refactor of the codebase.
+
 ## Outcome
 
 [![Player Movement](https://img.youtube.com/vi/FFiENsmIYyo/0.jpg)](https://www.youtube.com/watch?v=FFiENsmIYyo&ab_channel=OwainJones)
